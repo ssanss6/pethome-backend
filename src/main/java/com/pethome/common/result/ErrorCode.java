@@ -23,6 +23,7 @@ public enum ErrorCode {
     USER_DISABLED(40009, "账号已被禁用"),
     WX_LOGIN_FAILED(40010, "微信登录失败"),
     OSS_ERROR(40011, "文件服务异常"),
+    DATA_NOT_FOUND(40012, "数据不存在"),
 
     SYSTEM_ERROR(50000, "系统异常");
 
