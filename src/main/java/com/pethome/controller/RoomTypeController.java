@@ -21,6 +21,7 @@ import java.util.List;
 /**
  * 房型管理接口（后台）
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "房型管理")
 @RestController
 @RequestMapping("/api/admin/room-types")
 @RequiredArgsConstructor

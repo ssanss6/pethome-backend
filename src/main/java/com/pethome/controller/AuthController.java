@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 认证接口
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "认证")
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor

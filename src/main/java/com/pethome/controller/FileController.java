@@ -20,6 +20,7 @@ import java.util.UUID;
 /**
  * 文件接口（OSS 上传 / 签名 URL）
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "文件/OSS")
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor

@@ -20,6 +20,7 @@ import java.util.List;
 /**
  * 宠物档案接口（宠物主，数据范围自动限定本人）
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "宠物档案")
 @RestController
 @RequestMapping("/api/pets")
 @RequiredArgsConstructor

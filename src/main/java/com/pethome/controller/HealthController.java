@@ -9,6 +9,7 @@ import java.util.Map;
 /**
  * 健康检查
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "健康检查")
 @RestController
 public class HealthController {
 

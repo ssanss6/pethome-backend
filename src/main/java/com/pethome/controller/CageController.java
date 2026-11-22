@@ -22,6 +22,7 @@ import java.util.List;
 /**
  * 笼位管理接口（后台）
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "笼位管理")
 @RestController
 @RequestMapping("/api/admin/cages")
 @RequiredArgsConstructor
