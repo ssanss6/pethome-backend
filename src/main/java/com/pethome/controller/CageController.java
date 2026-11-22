@@ -4,6 +4,8 @@ import com.pethome.common.result.Result;
 import com.pethome.dto.CageDTO;
 import com.pethome.entity.Cage;
 import com.pethome.service.CageService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,7 +24,7 @@ import java.util.List;
 /**
  * 笼位管理接口（后台）
  */
-@io.swagger.v3.oas.annotations.tags.Tag(name = "笼位管理")
+@Tag(name = "笼位管理")
 @RestController
 @RequestMapping("/api/admin/cages")
 @RequiredArgsConstructor
@@ -31,26 +33,31 @@ public class CageController {
 
     private final CageService cageService;
 
+    @Operation(summary = "查询笼位列表")
     @GetMapping
     public Result<List<Cage>> list(@RequestParam(required = false) Long roomTypeId) {
         return Result.ok(cageService.list(roomTypeId));
     }
 
+    @Operation(summary = "查询笼位详情")
     @GetMapping("/{id}")
     public Result<Cage> get(@PathVariable Long id) {
         return Result.ok(cageService.get(id));
     }
 
+    @Operation(summary = "新增笼位")
     @PostMapping
     public Result<Cage> create(@Valid @RequestBody CageDTO dto) {
         return Result.ok(cageService.create(dto));
     }
 
+    @Operation(summary = "编辑笼位")
     @PutMapping("/{id}")
     public Result<Cage> update(@PathVariable Long id, @Valid @RequestBody CageDTO dto) {
         return Result.ok(cageService.update(id, dto));
     }
 
+    @Operation(summary = "删除笼位")
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         cageService.delete(id);

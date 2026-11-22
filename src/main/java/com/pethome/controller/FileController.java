@@ -5,6 +5,8 @@ import com.pethome.common.result.ErrorCode;
 import com.pethome.common.result.Result;
 import com.pethome.security.UserContext;
 import com.pethome.service.storage.OssService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,7 +22,7 @@ import java.util.UUID;
 /**
  * 文件接口（OSS 上传 / 签名 URL）
  */
-@io.swagger.v3.oas.annotations.tags.Tag(name = "文件/OSS")
+@Tag(name = "文件/OSS")
 @RestController
 @RequestMapping("/api/files")
 @RequiredArgsConstructor
@@ -28,7 +30,7 @@ public class FileController {
 
     private final OssService ossService;
 
-    /** 图片直传后端，后端转存 OSS，返回访问 URL */
+    @Operation(summary = "上传图片")
     @PostMapping("/upload")
     public Result<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -51,19 +53,19 @@ public class FileController {
         return Result.ok(data);
     }
 
-    /** 获取对象访问签名 URL */
+    @Operation(summary = "获取访问签名URL")
     @GetMapping("/sign-url")
     public Result<String> signUrl(@RequestParam String objectKey) {
         return Result.ok(ossService.generateAccessUrl(objectKey));
     }
 
-    /** 获取对象直传签名 URL（PUT 上传） */
+    @Operation(summary = "获取上传签名URL")
     @PostMapping("/upload-sign")
     public Result<String> uploadSign(@RequestParam String objectKey) {
         return Result.ok(ossService.generateUploadUrl(objectKey));
     }
 
-    /** OSS 连通性自检：真实上传→读回→删除 */
+    @Operation(summary = "OSS连通性自检")
     @GetMapping("/oss-check")
     public Result<String> ossCheck() {
         return Result.ok(ossService.selfTest());

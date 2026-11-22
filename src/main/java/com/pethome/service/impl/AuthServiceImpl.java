@@ -41,6 +41,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final WechatService wechatService;
 
+    
     @Override
     public LoginResponse login(LoginRequest request) {
         SysUser user = userMapper.selectOne(
