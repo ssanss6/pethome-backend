@@ -28,6 +28,12 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(properties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
+    /**
+     * 生成 JWT
+     *
+     * @param user 登录主体
+     * @return token 字符串
+     */
     public String generate(LoginUser user) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + properties.getExpireMinutes() * 60_000L);
@@ -43,6 +49,12 @@ public class JwtUtil {
                 .compact();
     }
 
+    /**
+     * 解析 JWT，还原登录主体
+     *
+     * @param token token 字符串
+     * @return 登录主体
+     */
     @SuppressWarnings("unchecked")
     public LoginUser parse(String token) {
         Claims claims = Jwts.parser()

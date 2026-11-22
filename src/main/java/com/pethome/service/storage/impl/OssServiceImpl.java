@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 /**
- * 阿里云 OSS 服务：服务端签名 URL + 直传，不暴露 AccessKey
+ * 阿里云 OSS 服务实现：服务端签名 URL + 直传，不暴露 AccessKey
  */
 @Service
 @RequiredArgsConstructor
@@ -27,6 +27,12 @@ public class OssServiceImpl implements OssService {
     private final OSS ossClient;
     private final OssProperties properties;
 
+    /**
+     * 获取对象访问签名 URL（GET）
+     *
+     * @param objectKey 对象 key
+     * @return 带过期时间的签名 URL
+     */
     @Override
     public String generateAccessUrl(String objectKey) {
         try {
@@ -38,6 +44,12 @@ public class OssServiceImpl implements OssService {
         }
     }
 
+    /**
+     * 获取对象直传签名 URL（PUT）
+     *
+     * @param objectKey 对象 key
+     * @return 带过期时间的签名 URL
+     */
     @Override
     public String generateUploadUrl(String objectKey) {
         try {
@@ -49,11 +61,17 @@ public class OssServiceImpl implements OssService {
         }
     }
 
+    /**
+     * 连通性自检：真实上传一个测试对象并读回后删除
+     *
+     * @return 自检结果字符串
+     */
     @Override
     public String selfTest() {
         String key = "_check/connectivity-" + System.currentTimeMillis() + ".txt";
         String content = "pethome-oss-ok";
         try {
+            // 上传 -> 读回 -> 校验 -> 删除
             ossClient.putObject(properties.getBucket(), key,
                     new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)));
             OSSObject obj = ossClient.getObject(properties.getBucket(), key);
@@ -66,9 +84,17 @@ public class OssServiceImpl implements OssService {
         }
     }
 
+    /**
+     * 上传文件到 OSS，返回访问 URL（7 天有效签名）
+     *
+     * @param objectKey 对象 key
+     * @param file      上传的文件
+     * @return 访问签名 URL
+     */
     @Override
     public String upload(String objectKey, MultipartFile file) {
         try {
+            // 设置元信息后直传 OSS
             ObjectMetadata meta = new ObjectMetadata();
             meta.setContentType(file.getContentType());
             meta.setContentLength(file.getSize());

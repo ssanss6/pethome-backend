@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 笼位服务（单门店，store_id 默认 1）
+ * 笼位服务实现（单门店，store_id 默认 1）
  */
 @Service
 @RequiredArgsConstructor
@@ -23,6 +23,12 @@ public class CageServiceImpl implements CageService {
 
     private final CageMapper cageMapper;
 
+    /**
+     * 查询笼位列表（可按房型筛选）
+     *
+     * @param roomTypeId 房型ID（可选）
+     * @return 笼位列表
+     */
     @Override
     public List<Cage> list(Long roomTypeId) {
         LambdaQueryWrapper<Cage> qw = new LambdaQueryWrapper<>();
@@ -33,6 +39,12 @@ public class CageServiceImpl implements CageService {
         return cageMapper.selectList(qw);
     }
 
+    /**
+     * 根据id查询笼位
+     *
+     * @param id 笼位ID
+     * @return 笼位实体
+     */
     @Override
     public Cage get(Long id) {
         Cage cage = cageMapper.selectById(id);
@@ -42,8 +54,15 @@ public class CageServiceImpl implements CageService {
         return cage;
     }
 
+    /**
+     * 新增笼位
+     *
+     * @param dto 笼位信息
+     * @return 新增后的笼位
+     */
     @Override
     public Cage create(CageDTO dto) {
+        // 笼位号同门店内唯一
         if (existsCageNo(dto.getCageNo(), null)) {
             throw new BizException(ErrorCode.DUPLICATE_SUBMIT, "笼位号已存在");
         }
@@ -56,9 +75,17 @@ public class CageServiceImpl implements CageService {
         return cage;
     }
 
+    /**
+     * 编辑笼位（仅更新非空字段）
+     *
+     * @param id  笼位ID
+     * @param dto 笼位信息
+     * @return 更新后的笼位
+     */
     @Override
     public Cage update(Long id, CageDTO dto) {
         Cage cage = get(id);
+        // 改笼位号时校验唯一
         if (dto.getCageNo() != null && !dto.getCageNo().equals(cage.getCageNo())
                 && existsCageNo(dto.getCageNo(), id)) {
             throw new BizException(ErrorCode.DUPLICATE_SUBMIT, "笼位号已存在");
@@ -76,11 +103,23 @@ public class CageServiceImpl implements CageService {
         return cage;
     }
 
+    /**
+     * 删除笼位
+     *
+     * @param id 笼位ID
+     */
     @Override
     public void delete(Long id) {
         cageMapper.deleteById(id);
     }
 
+    /**
+     * 判断笼位号是否已存在
+     *
+     * @param cageNo    笼位号
+     * @param excludeId 排除的笼位ID（编辑时排除自身）
+     * @return true 已存在
+     */
     private boolean existsCageNo(String cageNo, Long excludeId) {
         LambdaQueryWrapper<Cage> qw = new LambdaQueryWrapper<Cage>()
                 .eq(Cage::getStoreId, DEFAULT_STORE_ID)

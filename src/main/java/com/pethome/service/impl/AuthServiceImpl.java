@@ -28,7 +28,7 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 
 /**
- * 认证服务
+ * 认证服务实现
  */
 @Service
 @RequiredArgsConstructor
@@ -41,11 +41,19 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final WechatService wechatService;
 
-    
+    /**
+     * 员工/管理员账号密码登录
+     *
+     * @param request 登录请求（username + password）
+     * @return 登录响应（token + 用户信息）
+     */
     @Override
     public LoginResponse login(LoginRequest request) {
+        //1、按用户名查询用户
         SysUser user = userMapper.selectOne(
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, request.getUsername()));
+
+        //2、处理各种异常情况（用户不存在、宠物主走微信、账号禁用、密码错误）
         if (user == null) {
             throw new BizException(ErrorCode.USER_NOT_FOUND);
         }
@@ -56,19 +64,31 @@ public class AuthServiceImpl implements AuthService {
         if (user.getStatus() == null || user.getStatus() != 1) {
             throw new BizException(ErrorCode.USER_DISABLED);
         }
+        // 密码比对：BCrypt 密文比对
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BizException(ErrorCode.PASSWORD_ERROR);
         }
+
+        //3、加载角色并生成 JWT 返回
         List<String> roles = loadRoles(user.getId());
         String token = jwtUtil.generate(
                 new LoginUser(user.getId(), user.getUserType(), roles, null, user.getUsername()));
         return buildResponse(user, roles, token);
     }
 
+    /**
+     * 宠物主微信登录（首次自动注册）
+     *
+     * @param request 微信登录请求（code + 可选昵称）
+     * @return 登录响应
+     */
     @Override
     @Transactional
     public LoginResponse wxLogin(WxLoginRequest request) {
+        //1、用 code 换 openid
         WechatSession session = wechatService.code2session(request.getCode());
+
+        //2、按 openid 查询用户，不存在则自动注册
         SysUser user = userMapper.selectOne(
                 new LambdaQueryWrapper<SysUser>().eq(SysUser::getOpenid, session.getOpenid()));
         if (user == null) {
@@ -86,16 +106,27 @@ public class AuthServiceImpl implements AuthService {
             user.setNickname(request.getNickname());
             userMapper.updateById(user);
         }
+
+        // 账号被禁用则不允许登录
         if (user.getStatus() == null || user.getStatus() != 1) {
             throw new BizException(ErrorCode.USER_DISABLED);
         }
+
+        //3、加载角色并生成 JWT 返回
         List<String> roles = loadRoles(user.getId());
         String token = jwtUtil.generate(
                 new LoginUser(user.getId(), user.getUserType(), roles, user.getOpenid(), null));
         return buildResponse(user, roles, token);
     }
 
+    /**
+     * 加载用户角色编码列表
+     *
+     * @param userId 用户ID
+     * @return 角色编码列表
+     */
     private List<String> loadRoles(Long userId) {
+        // 查用户角色关联表拿角色ID
         List<Long> roleIds = userRoleMapper.selectList(
                         new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId))
                 .stream()
@@ -104,11 +135,18 @@ public class AuthServiceImpl implements AuthService {
         if (roleIds.isEmpty()) {
             return List.of();
         }
+        // 批量查角色表拿角色编码
         return roleMapper.selectByIds(roleIds).stream()
                 .map(SysRole::getRoleCode)
                 .toList();
     }
 
+    /**
+     * 给用户绑定角色
+     *
+     * @param userId 用户ID
+     * @param role   角色枚举
+     */
     private void bindRole(Long userId, RoleEnum role) {
         SysRole sysRole = roleMapper.selectOne(
                 new LambdaQueryWrapper<SysRole>().eq(SysRole::getRoleCode, role.getCode()));
@@ -121,6 +159,14 @@ public class AuthServiceImpl implements AuthService {
         userRoleMapper.insert(ur);
     }
 
+    /**
+     * 组装登录响应
+     *
+     * @param user  用户实体
+     * @param roles 角色编码列表
+     * @param token JWT
+     * @return 登录响应
+     */
     private LoginResponse buildResponse(SysUser user, List<String> roles, String token) {
         LoginResponse resp = new LoginResponse();
         resp.setToken(token);

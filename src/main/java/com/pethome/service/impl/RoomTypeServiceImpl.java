@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * 房型服务（单门店，store_id 默认 1）
+ * 房型服务实现（单门店，store_id 默认 1）
  */
 @Service
 @RequiredArgsConstructor
@@ -25,6 +25,11 @@ public class RoomTypeServiceImpl implements RoomTypeService {
 
     private final RoomTypeMapper roomTypeMapper;
 
+    /**
+     * 查询启用的房型列表
+     *
+     * @return 房型列表
+     */
     @Override
     public List<RoomType> list() {
         return roomTypeMapper.selectList(new LambdaQueryWrapper<RoomType>()
@@ -32,6 +37,12 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 .orderByAsc(RoomType::getId));
     }
 
+    /**
+     * 根据id查询房型
+     *
+     * @param id 房型ID
+     * @return 房型实体
+     */
     @Override
     public RoomType get(Long id) {
         RoomType roomType = roomTypeMapper.selectById(id);
@@ -41,8 +52,15 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         return roomType;
     }
 
+    /**
+     * 新增房型
+     *
+     * @param dto 房型信息
+     * @return 新增后的房型
+     */
     @Override
     public RoomType create(RoomTypeDTO dto) {
+        // dto 转实体，补齐门店与状态
         RoomType roomType = new RoomType();
         BeanUtil.copyProperties(dto, roomType);
         roomType.setStoreId(DEFAULT_STORE_ID);
@@ -51,6 +69,13 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         return roomType;
     }
 
+    /**
+     * 编辑房型（仅更新非空字段）
+     *
+     * @param id  房型ID
+     * @param dto 房型信息
+     * @return 更新后的房型
+     */
     @Override
     public RoomType update(Long id, RoomTypeDTO dto) {
         RoomType roomType = get(id);
@@ -59,6 +84,11 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         return roomType;
     }
 
+    /**
+     * 删除房型
+     *
+     * @param id 房型ID
+     */
     @Override
     public void delete(Long id) {
         roomTypeMapper.deleteById(id);

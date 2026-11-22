@@ -29,6 +29,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
 
+    /**
+     * 解析请求头 token，写入 SecurityContext 与 UserContext
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
