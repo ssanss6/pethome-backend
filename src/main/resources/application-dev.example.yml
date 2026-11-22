@@ -1,0 +1,36 @@
+# 复制本文件为 application-dev.yml，并填入你的真实配置（application-dev.yml 已被 .gitignore 忽略）
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/pethome?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: root
+    password: YOUR_MYSQL_PASSWORD
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: YOUR_REDIS_PASSWORD
+      database: 10
+      timeout: 5s
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      continue-on-error: false
+
+pethome:
+  wx:
+    app-id: "YOUR_APPID"
+    secret: "YOUR_SECRET"
+    mock-enabled: true
+  oss:
+    endpoint: "https://oss-cn-shenzhen.aliyuncs.com"
+    access-key-id: "YOUR_ACCESS_KEY_ID"
+    access-key-secret: "YOUR_ACCESS_KEY_SECRET"
+    bucket: "YOUR_BUCKET"
+    domain: ""
+    sign-expire-seconds: 600
+
+logging:
+  level:
+    com.pethome: debug
