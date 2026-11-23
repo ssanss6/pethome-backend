@@ -11,4 +11,7 @@ public interface AuthService {
 
     /** 宠物主微信登录 */
     LoginResponse wxLogin(WxLoginRequest request);
+
+    /** 退出登录（删除 Redis 登录态） */
+    void logout(String token);
 }

@@ -2,6 +2,7 @@ package com.pethome.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.pethome.common.exception.BizException;
 import com.pethome.common.result.ErrorCode;
 import com.pethome.dto.BoardingOrderCreateDTO;
@@ -20,6 +21,7 @@ import com.pethome.mapper.PetMapper;
 import com.pethome.mapper.RoomTypeMapper;
 import com.pethome.security.UserContext;
 import com.pethome.service.BoardingOrderService;
+import com.pethome.service.RedisService;
 import com.pethome.vo.BoardingOrderVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -48,6 +51,7 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
     private final CageMapper cageMapper;
     private final RoomTypeMapper roomTypeMapper;
     private final PetMapper petMapper;
+    private final RedisService redisService;
 
     /**
      * 查询某房型在 [checkIn, checkOut) 区间内的可订笼位
@@ -60,6 +64,12 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
     @Override
     public List<Cage> listAvailableCages(Long roomTypeId, LocalDate checkInDate, LocalDate checkOutDate) {
         validateDateRange(checkInDate, checkOutDate);
+        String cacheKey = availCacheKey(roomTypeId, checkInDate, checkOutDate);
+        //0、先查缓存（短 TTL，最终一致性以数据库为准）
+        List<Cage> cached = redisService.get(cacheKey, new TypeReference<List<Cage>>() {});
+        if (cached != null) {
+            return cached;
+        }
         //1、该房型所有启用笼位
         List<Cage> cages = cageMapper.selectList(new LambdaQueryWrapper<Cage>()
                 .eq(Cage::getRoomTypeId, roomTypeId)
@@ -78,7 +88,10 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
                 .map(CageOccupancy::getCageId)
                 .collect(Collectors.toSet());
         //3、过滤掉已占用的笼位
-        return cages.stream().filter(c -> !occupiedCageIds.contains(c.getId())).toList();
+        List<Cage> result = cages.stream().filter(c -> !occupiedCageIds.contains(c.getId())).toList();
+        //4、写缓存（60 秒）
+        redisService.set(cacheKey, result, 60, TimeUnit.SECONDS);
+        return result;
     }
 
     /**
@@ -239,6 +252,8 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
         // 绑定笼位并流转状态
         order.setCageId(cage.getId());
         transition(order, BoardingOrderStatus.PENDING_CHECK_IN, "门店确认，锁定笼位 " + cage.getCageNo());
+        // 失效该日期区间的可订笼位缓存
+        redisService.delete(availCacheKey(order.getRoomTypeId(), order.getCheckInDate(), order.getCheckOutDate()));
     }
 
     // ---------- 私有方法 ----------
@@ -277,6 +292,10 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
         log.setOperatorId(UserContext.getUserId());
         log.setReason(reason);
         orderStatusLogMapper.insert(log);
+    }
+
+    private String availCacheKey(Long roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        return "cache:boarding:avail:" + roomTypeId + ":" + checkIn + ":" + checkOut;
     }
 
     private String generateOrderNo() {

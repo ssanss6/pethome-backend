@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,5 +36,16 @@ public class AuthController {
     @PostMapping("/wx-login")
     public Result<LoginResponse> wxLogin(@Valid @RequestBody WxLoginRequest request) {
         return Result.ok(authService.wxLogin(request));
+    }
+
+    @Operation(summary = "退出登录")
+    @PostMapping("/logout")
+    public Result<Void> logout(@RequestHeader(value = "Authorization", required = false) String authorization) {
+        String token = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            token = authorization.substring(7);
+        }
+        authService.logout(token);
+        return Result.ok();
     }
 }

@@ -3,6 +3,7 @@ package com.pethome.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.pethome.common.exception.BizException;
 import com.pethome.common.result.ErrorCode;
+import com.pethome.config.JwtProperties;
 import com.pethome.dto.LoginRequest;
 import com.pethome.dto.WechatSession;
 import com.pethome.dto.WxLoginRequest;
@@ -17,6 +18,7 @@ import com.pethome.mapper.SysUserRoleMapper;
 import com.pethome.security.JwtUtil;
 import com.pethome.security.LoginUser;
 import com.pethome.service.AuthService;
+import com.pethome.service.RedisService;
 import com.pethome.service.WechatService;
 import com.pethome.vo.LoginResponse;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 认证服务实现
@@ -40,6 +43,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final WechatService wechatService;
+    private final RedisService redisService;
+    private final JwtProperties jwtProperties;
 
     /**
      * 员工/管理员账号密码登录
@@ -69,10 +74,11 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ErrorCode.PASSWORD_ERROR);
         }
 
-        //3、加载角色并生成 JWT 返回
+        //3、加载角色并生成 JWT，登录态写入 Redis
         List<String> roles = loadRoles(user.getId());
         String token = jwtUtil.generate(
                 new LoginUser(user.getId(), user.getUserType(), roles, null, user.getUsername()));
+        storeToken(token, user.getId());
         return buildResponse(user, roles, token);
     }
 
@@ -112,11 +118,30 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ErrorCode.USER_DISABLED);
         }
 
-        //3、加载角色并生成 JWT 返回
+        //3、加载角色并生成 JWT，登录态写入 Redis
         List<String> roles = loadRoles(user.getId());
         String token = jwtUtil.generate(
                 new LoginUser(user.getId(), user.getUserType(), roles, user.getOpenid(), null));
+        storeToken(token, user.getId());
         return buildResponse(user, roles, token);
+    }
+
+    /**
+     * 退出登录（删除 Redis 登录态，token 立即失效）
+     *
+     * @param token 登录 token
+     */
+    @Override
+    public void logout(String token) {
+        if (StringUtils.hasText(token)) {
+            redisService.delete("login:token:" + token);
+        }
+    }
+
+    /** 登录态写入 Redis，TTL 与 JWT 有效期一致 */
+    private void storeToken(String token, Long userId) {
+        redisService.set("login:token:" + token, String.valueOf(userId),
+                jwtProperties.getExpireMinutes(), TimeUnit.MINUTES);
     }
 
     /**
