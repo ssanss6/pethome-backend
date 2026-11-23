@@ -99,3 +99,54 @@ CREATE TABLE IF NOT EXISTS cage (
     UNIQUE KEY uk_store_cage (store_id, cage_no),
     KEY idx_room_type (room_type_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='笼位表';
+
+-- ---------- 寄养订单 ----------
+CREATE TABLE IF NOT EXISTS boarding_order (
+    id             BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
+    order_no       VARCHAR(32)   NOT NULL COMMENT '订单号',
+    owner_id       BIGINT        NOT NULL COMMENT '宠物主用户ID',
+    pet_id         BIGINT        NOT NULL COMMENT '宠物ID',
+    store_id       BIGINT        NOT NULL DEFAULT 1 COMMENT '门店ID',
+    room_type_id   BIGINT        NOT NULL COMMENT '房型ID',
+    cage_id        BIGINT        NULL COMMENT '分配的笼位（门店确认时锁定）',
+    check_in_date  DATE          NOT NULL COMMENT '入住日期',
+    check_out_date DATE          NOT NULL COMMENT '离店日期',
+    nights         INT           NOT NULL COMMENT '晚数',
+    status         VARCHAR(20)   NOT NULL COMMENT '订单状态',
+    base_amount    DECIMAL(10,2) NULL COMMENT '基础费用',
+    deposit_amount DECIMAL(10,2) NULL DEFAULT 0 COMMENT '押金',
+    extra_amount   DECIMAL(10,2) NULL DEFAULT 0 COMMENT '加项',
+    timeout_fee    DECIMAL(10,2) NULL DEFAULT 0 COMMENT '超时费',
+    remark         VARCHAR(500)  NULL COMMENT '备注',
+    created_at     DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_order_no (order_no),
+    KEY idx_owner (owner_id),
+    KEY idx_status_date (store_id, status, check_in_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='寄养订单表';
+
+-- ---------- 笼位按天占用（区间库存核心） ----------
+CREATE TABLE IF NOT EXISTS cage_occupancy (
+    id                BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    cage_id           BIGINT NOT NULL COMMENT '笼位ID',
+    occupy_date       DATE   NOT NULL COMMENT '占用日期',
+    boarding_order_id BIGINT NOT NULL COMMENT '寄养订单ID',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_cage_date (cage_id, occupy_date),
+    KEY idx_order (boarding_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='笼位按天占用表';
+
+-- ---------- 订单状态流转日志 ----------
+CREATE TABLE IF NOT EXISTS order_status_log (
+    id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    order_type  VARCHAR(20)  NOT NULL COMMENT '订单类型 BOARDING/GROOMING',
+    order_id    BIGINT       NOT NULL COMMENT '订单ID',
+    from_status VARCHAR(20)  NULL COMMENT '原状态',
+    to_status   VARCHAR(20)  NOT NULL COMMENT '目标状态',
+    operator_id BIGINT       NULL COMMENT '操作人',
+    reason      VARCHAR(255) NULL COMMENT '原因',
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_order (order_type, order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单状态流转日志表';

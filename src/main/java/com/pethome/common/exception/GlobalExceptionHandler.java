@@ -4,6 +4,7 @@ import com.pethome.common.result.ErrorCode;
 import com.pethome.common.result.Result;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
@@ -40,6 +41,11 @@ public class GlobalExceptionHandler {
                 .map(v -> v.getMessage())
                 .orElse(ErrorCode.PARAM_ERROR.getMessage());
         return Result.fail(ErrorCode.PARAM_ERROR.getCode(), msg);
+    }
+
+    @ExceptionHandler(DuplicateKeyException.class)
+    public Result<Void> handleDuplicateKey(DuplicateKeyException e) {
+        return Result.fail(ErrorCode.DUPLICATE_SUBMIT.getCode(), "数据已存在（唯一约束冲突）");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
