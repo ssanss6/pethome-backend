@@ -22,6 +22,7 @@ import com.pethome.service.RedisService;
 import com.pethome.service.WechatService;
 import com.pethome.vo.LoginResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 认证服务实现
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -134,14 +136,22 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void logout(String token) {
         if (StringUtils.hasText(token)) {
-            redisService.delete("login:token:" + token);
+            try {
+                redisService.delete("login:token:" + token);
+            } catch (Exception e) {
+                log.warn("退出登录清理 Redis 失败：{}", e.getMessage());
+            }
         }
     }
 
-    /** 登录态写入 Redis，TTL 与 JWT 有效期一致 */
+    /** 登录态写入 Redis，TTL 与 JWT 有效期一致（Redis 不可用时降级为无状态 JWT，不影响登录） */
     private void storeToken(String token, Long userId) {
-        redisService.set("login:token:" + token, String.valueOf(userId),
-                jwtProperties.getExpireMinutes(), TimeUnit.MINUTES);
+        try {
+            redisService.set("login:token:" + token, String.valueOf(userId),
+                    jwtProperties.getExpireMinutes(), TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("登录态写入 Redis 失败，降级为无状态 JWT：{}", e.getMessage());
+        }
     }
 
     /**

@@ -12,14 +12,16 @@ import com.pethome.mapper.RoomTypeMapper;
 import com.pethome.service.RedisService;
 import com.pethome.service.RoomTypeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 房型服务实现（单门店，store_id 默认 1；列表走 Redis 缓存）
+ * 房型服务实现（单门店，store_id 默认 1；列表走 Redis 缓存，缓存不可用自动回源）
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoomTypeServiceImpl implements RoomTypeService {
@@ -31,22 +33,31 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     private final RedisService redisService;
 
     /**
-     * 查询启用的房型列表（Redis 缓存 10 分钟）
+     * 查询启用的房型列表（Redis 缓存 10 分钟，缓存不可用自动回源数据库）
      *
      * @return 房型列表
      */
     @Override
     public List<RoomType> list() {
         // 先查缓存
-        List<RoomType> cached = redisService.get(CACHE_KEY, new TypeReference<List<RoomType>>() {});
-        if (cached != null) {
-            return cached;
+        try {
+            List<RoomType> cached = redisService.get(CACHE_KEY, new TypeReference<List<RoomType>>() {});
+            if (cached != null) {
+                return cached;
+            }
+        } catch (Exception e) {
+            log.warn("房型缓存读取失败，回源数据库：{}", e.getMessage());
         }
-        // 未命中查库并写缓存
+        // 未命中查库
         List<RoomType> list = roomTypeMapper.selectList(new LambdaQueryWrapper<RoomType>()
                 .eq(RoomType::getStatus, 1)
                 .orderByAsc(RoomType::getId));
-        redisService.set(CACHE_KEY, list, 10, TimeUnit.MINUTES);
+        // 写缓存
+        try {
+            redisService.set(CACHE_KEY, list, 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("房型缓存写入失败：{}", e.getMessage());
+        }
         return list;
     }
 
@@ -79,7 +90,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         roomType.setStoreId(DEFAULT_STORE_ID);
         roomType.setStatus(1);
         roomTypeMapper.insert(roomType);
-        redisService.delete(CACHE_KEY);
+        evictCache();
         return roomType;
     }
 
@@ -95,7 +106,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType roomType = get(id);
         BeanUtil.copyProperties(dto, roomType, CopyOptions.create().setIgnoreNullValue(true));
         roomTypeMapper.updateById(roomType);
-        redisService.delete(CACHE_KEY);
+        evictCache();
         return roomType;
     }
 
@@ -107,6 +118,15 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     @Override
     public void delete(Long id) {
         roomTypeMapper.deleteById(id);
-        redisService.delete(CACHE_KEY);
+        evictCache();
+    }
+
+    /** 失效缓存（Redis 不可用时忽略） */
+    private void evictCache() {
+        try {
+            redisService.delete(CACHE_KEY);
+        } catch (Exception e) {
+            log.warn("房型缓存失效失败：{}", e.getMessage());
+        }
     }
 }

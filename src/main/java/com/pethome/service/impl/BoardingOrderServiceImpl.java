@@ -24,6 +24,7 @@ import com.pethome.service.BoardingOrderService;
 import com.pethome.service.RedisService;
 import com.pethome.vo.BoardingOrderVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 /**
  * 寄养预约服务实现（区间库存 + 计价 + 订单状态机）
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BoardingOrderServiceImpl implements BoardingOrderService {
@@ -65,10 +67,14 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
     public List<Cage> listAvailableCages(Long roomTypeId, LocalDate checkInDate, LocalDate checkOutDate) {
         validateDateRange(checkInDate, checkOutDate);
         String cacheKey = availCacheKey(roomTypeId, checkInDate, checkOutDate);
-        //0、先查缓存（短 TTL，最终一致性以数据库为准）
-        List<Cage> cached = redisService.get(cacheKey, new TypeReference<List<Cage>>() {});
-        if (cached != null) {
-            return cached;
+        //0、先查缓存（短 TTL，最终一致性以数据库为准；缓存不可用自动回源）
+        try {
+            List<Cage> cached = redisService.get(cacheKey, new TypeReference<List<Cage>>() {});
+            if (cached != null) {
+                return cached;
+            }
+        } catch (Exception e) {
+            log.warn("可订笼位缓存读取失败，回源数据库：{}", e.getMessage());
         }
         //1、该房型所有启用笼位
         List<Cage> cages = cageMapper.selectList(new LambdaQueryWrapper<Cage>()
@@ -90,7 +96,11 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
         //3、过滤掉已占用的笼位
         List<Cage> result = cages.stream().filter(c -> !occupiedCageIds.contains(c.getId())).toList();
         //4、写缓存（60 秒）
-        redisService.set(cacheKey, result, 60, TimeUnit.SECONDS);
+        try {
+            redisService.set(cacheKey, result, 60, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.warn("可订笼位缓存写入失败：{}", e.getMessage());
+        }
         return result;
     }
 
@@ -252,8 +262,12 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
         // 绑定笼位并流转状态
         order.setCageId(cage.getId());
         transition(order, BoardingOrderStatus.PENDING_CHECK_IN, "门店确认，锁定笼位 " + cage.getCageNo());
-        // 失效该日期区间的可订笼位缓存
-        redisService.delete(availCacheKey(order.getRoomTypeId(), order.getCheckInDate(), order.getCheckOutDate()));
+        // 失效该日期区间的可订笼位缓存（Redis 不可用时忽略）
+        try {
+            redisService.delete(availCacheKey(order.getRoomTypeId(), order.getCheckInDate(), order.getCheckOutDate()));
+        } catch (Exception e) {
+            log.warn("可订笼位缓存失效失败：{}", e.getMessage());
+        }
     }
 
     // ---------- 私有方法 ----------
