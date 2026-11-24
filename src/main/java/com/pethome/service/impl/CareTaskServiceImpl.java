@@ -44,10 +44,17 @@ public class CareTaskServiceImpl implements CareTaskService {
     @Override
     @Transactional
     public void generateTasks(Long boardingOrderId, LocalDate checkInDate, LocalDate checkOutDate) {
-        // 半开区间 [入住, 离店)，每天生成 4 类任务，(order_id, date, type) 唯一键防重复
+        // 半开区间 [入住, 离店)，每天生成 4 类任务；已存在的跳过（幂等，供定时任务补生成）
         LocalDate d = checkInDate;
         while (d.isBefore(checkOutDate)) {
             for (CareTaskType type : CareTaskType.values()) {
+                Long exists = careTaskMapper.selectCount(new LambdaQueryWrapper<CareTask>()
+                        .eq(CareTask::getBoardingOrderId, boardingOrderId)
+                        .eq(CareTask::getTaskDate, d)
+                        .eq(CareTask::getTaskType, type.getCode()));
+                if (exists != null && exists > 0) {
+                    continue;
+                }
                 CareTask task = new CareTask();
                 task.setBoardingOrderId(boardingOrderId);
                 task.setTaskDate(d);

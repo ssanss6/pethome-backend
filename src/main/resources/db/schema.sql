@@ -167,3 +167,108 @@ CREATE TABLE IF NOT EXISTS care_task (
     UNIQUE KEY uk_task (boarding_order_id, task_date, task_type),
     KEY idx_date_status (task_date, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每日照护任务表';
+
+-- ---------- M5 离店结算 ----------
+CREATE TABLE IF NOT EXISTS settlement (
+    id                BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
+    settlement_no     VARCHAR(32)   NOT NULL COMMENT '结算单号',
+    boarding_order_id BIGINT        NOT NULL COMMENT '寄养订单ID',
+    base_amount       DECIMAL(10,2) NULL COMMENT '基础费用',
+    extra_amount      DECIMAL(10,2) NULL DEFAULT 0 COMMENT '加项',
+    timeout_fee       DECIMAL(10,2) NULL DEFAULT 0 COMMENT '超时费',
+    deposit_amount    DECIMAL(10,2) NULL DEFAULT 0 COMMENT '押金',
+    total_amount      DECIMAL(10,2) NULL COMMENT '应收总额',
+    status            VARCHAR(20)   NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING待结算/SETTLED已结算',
+    created_at        DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_settlement_no (settlement_no),
+    UNIQUE KEY uk_order (boarding_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='离店结算单';
+
+-- ---------- M5 洗护线 ----------
+CREATE TABLE IF NOT EXISTS service_item (
+    id               BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
+    store_id         BIGINT        NOT NULL DEFAULT 1 COMMENT '门店ID',
+    name             VARCHAR(50)   NOT NULL COMMENT '服务名',
+    price            DECIMAL(10,2) NOT NULL COMMENT '价格',
+    duration_minutes INT           NULL COMMENT '时长(分钟)',
+    description      VARCHAR(255)  NULL COMMENT '描述',
+    status           TINYINT       DEFAULT 1 COMMENT '1启用 0停用',
+    created_at       DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='洗护服务项目';
+
+CREATE TABLE IF NOT EXISTS groomer (
+    id         BIGINT      NOT NULL AUTO_INCREMENT COMMENT '主键',
+    store_id   BIGINT      NOT NULL DEFAULT 1 COMMENT '门店ID',
+    user_id    BIGINT      NOT NULL COMMENT '关联sys_user(员工)',
+    name       VARCHAR(50) NOT NULL COMMENT '美容师姓名',
+    status     TINYINT     DEFAULT 1 COMMENT '1在职 0离职',
+    created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='美容师';
+
+CREATE TABLE IF NOT EXISTS grooming_order (
+    id              BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
+    order_no        VARCHAR(32)   NOT NULL COMMENT '订单号',
+    owner_id        BIGINT        NOT NULL COMMENT '宠物主用户ID',
+    pet_id          BIGINT        NOT NULL COMMENT '宠物ID',
+    store_id        BIGINT        NOT NULL DEFAULT 1 COMMENT '门店ID',
+    service_item_id BIGINT        NOT NULL COMMENT '服务项目ID',
+    groomer_id      BIGINT        NOT NULL COMMENT '美容师ID',
+    service_date    DATE          NOT NULL COMMENT '服务日期',
+    slot            VARCHAR(20)   NOT NULL COMMENT '时段(如 09:00)',
+    status          VARCHAR(20)   NOT NULL COMMENT '订单状态',
+    amount          DECIMAL(10,2) NULL COMMENT '金额',
+    remark          VARCHAR(255)  NULL COMMENT '备注',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_order_no (order_no),
+    KEY idx_owner (owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='洗护订单';
+
+CREATE TABLE IF NOT EXISTS membership_card (
+    id              BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键',
+    owner_id        BIGINT   NOT NULL COMMENT '宠物主用户ID',
+    service_item_id BIGINT   NOT NULL COMMENT '服务项目ID',
+    total_times     INT      NOT NULL COMMENT '总次数',
+    used_times      INT      NOT NULL DEFAULT 0 COMMENT '已用次数',
+    expire_date     DATE     NULL COMMENT '到期日',
+    status          TINYINT  DEFAULT 1 COMMENT '1有效 0失效',
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_owner (owner_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会员次卡';
+
+-- ---------- M6 评价与售后 ----------
+CREATE TABLE IF NOT EXISTS review (
+    id         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    order_type VARCHAR(20)  NOT NULL COMMENT 'BOARDING/GROOMING',
+    order_id   BIGINT       NOT NULL COMMENT '订单ID',
+    owner_id   BIGINT       NOT NULL COMMENT '宠物主用户ID',
+    rating     INT          NOT NULL COMMENT '评分 1-5',
+    content    VARCHAR(500) NULL COMMENT '评价内容',
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_order (order_type, order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评价';
+
+CREATE TABLE IF NOT EXISTS after_sale (
+    id         BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    order_type VARCHAR(20)  NOT NULL COMMENT 'BOARDING/GROOMING',
+    order_id   BIGINT       NOT NULL COMMENT '订单ID',
+    owner_id   BIGINT       NOT NULL COMMENT '宠物主用户ID',
+    type       VARCHAR(20)  NOT NULL COMMENT 'REFUND退款/COMPLAINT投诉',
+    reason     VARCHAR(500) NULL COMMENT '原因',
+    status     VARCHAR(20)  NOT NULL DEFAULT 'OPEN' COMMENT 'OPEN/PROCESSING/RESOLVED/CLOSED',
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_order (order_type, order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='售后工单';

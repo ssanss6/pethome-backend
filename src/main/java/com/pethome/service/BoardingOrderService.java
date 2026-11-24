@@ -2,8 +2,10 @@ package com.pethome.service;
 
 import com.pethome.dto.BoardingOrderCreateDTO;
 import com.pethome.dto.CheckInDTO;
+import com.pethome.dto.CheckoutDTO;
 import com.pethome.entity.BoardingOrder;
 import com.pethome.entity.Cage;
+import com.pethome.entity.Settlement;
 import com.pethome.vo.BoardingOrderVO;
 
 import java.time.LocalDate;
@@ -34,4 +36,10 @@ public interface BoardingOrderService {
 
     /** 入住登记（生成照护任务，待入住 -> 寄养中） */
     void checkIn(Long id, CheckInDTO dto);
+
+    /** 离店结算（发起结算单，寄养中 -> 待离店） */
+    Settlement checkout(Long id, CheckoutDTO dto);
+
+    /** 离店确认（结算完成，待离店 -> 已完成） */
+    void complete(Long id);
 }

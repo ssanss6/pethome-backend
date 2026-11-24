@@ -3,8 +3,10 @@ package com.pethome.controller;
 import com.pethome.common.result.Result;
 import com.pethome.dto.BoardingOrderCreateDTO;
 import com.pethome.dto.CheckInDTO;
+import com.pethome.dto.CheckoutDTO;
 import com.pethome.entity.BoardingOrder;
 import com.pethome.entity.Cage;
+import com.pethome.entity.Settlement;
 import com.pethome.entity.RoomType;
 import com.pethome.service.BoardingOrderService;
 import com.pethome.service.RoomTypeService;
@@ -98,6 +100,21 @@ public class BoardingOrderController {
     @PreAuthorize("hasAnyRole('CAREGIVER','RECEPTION','STORE_MANAGER','PLATFORM_ADMIN')")
     public Result<Void> checkIn(@PathVariable Long id, @RequestBody(required = false) CheckInDTO dto) {
         boardingOrderService.checkIn(id, dto == null ? new CheckInDTO() : dto);
+        return Result.ok();
+    }
+
+    @Operation(summary = "离店结算")
+    @PostMapping("/orders/{id}/checkout")
+    @PreAuthorize("hasAnyRole('CAREGIVER','RECEPTION','STORE_MANAGER','PLATFORM_ADMIN')")
+    public Result<Settlement> checkout(@PathVariable Long id, @RequestBody(required = false) CheckoutDTO dto) {
+        return Result.ok(boardingOrderService.checkout(id, dto == null ? new CheckoutDTO() : dto));
+    }
+
+    @Operation(summary = "离店确认")
+    @PostMapping("/orders/{id}/complete")
+    @PreAuthorize("hasAnyRole('CAREGIVER','RECEPTION','STORE_MANAGER','PLATFORM_ADMIN')")
+    public Result<Void> complete(@PathVariable Long id) {
+        boardingOrderService.complete(id);
         return Result.ok();
     }
 }

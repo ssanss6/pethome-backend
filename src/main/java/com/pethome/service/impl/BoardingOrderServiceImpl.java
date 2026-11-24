@@ -7,12 +7,14 @@ import com.pethome.common.exception.BizException;
 import com.pethome.common.result.ErrorCode;
 import com.pethome.dto.BoardingOrderCreateDTO;
 import com.pethome.dto.CheckInDTO;
+import com.pethome.dto.CheckoutDTO;
 import com.pethome.entity.BoardingOrder;
 import com.pethome.entity.Cage;
 import com.pethome.entity.CageOccupancy;
 import com.pethome.entity.OrderStatusLog;
 import com.pethome.entity.Pet;
 import com.pethome.entity.RoomType;
+import com.pethome.entity.Settlement;
 import com.pethome.enums.BoardingOrderStatus;
 import com.pethome.mapper.BoardingOrderMapper;
 import com.pethome.mapper.CageMapper;
@@ -20,6 +22,7 @@ import com.pethome.mapper.CageOccupancyMapper;
 import com.pethome.mapper.OrderStatusLogMapper;
 import com.pethome.mapper.PetMapper;
 import com.pethome.mapper.RoomTypeMapper;
+import com.pethome.mapper.SettlementMapper;
 import com.pethome.security.UserContext;
 import com.pethome.service.BoardingOrderService;
 import com.pethome.service.CareTaskService;
@@ -57,6 +60,7 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
     private final PetMapper petMapper;
     private final RedisService redisService;
     private final CareTaskService careTaskService;
+    private final SettlementMapper settlementMapper;
 
     /**
      * 查询某房型在 [checkIn, checkOut) 区间内的可订笼位
@@ -298,6 +302,62 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
         careTaskService.generateTasks(order.getId(), order.getCheckInDate(), order.getCheckOutDate());
         // 状态流转：待入住 -> 寄养中
         transition(order, BoardingOrderStatus.BOARDING, "办理入住");
+    }
+
+    /**
+     * 离店结算（发起结算单，寄养中 -> 待离店）
+     */
+    @Override
+    @Transactional
+    public Settlement checkout(Long id, CheckoutDTO dto) {
+        BoardingOrder order = boardingOrderMapper.selectById(id);
+        if (order == null) {
+            throw new BizException(ErrorCode.DATA_NOT_FOUND, "订单不存在");
+        }
+        if (!BoardingOrderStatus.BOARDING.getCode().equals(order.getStatus())) {
+            throw new BizException(ErrorCode.ORDER_STATUS_ERROR, "订单状态不允许结算");
+        }
+        BigDecimal base = order.getBaseAmount() == null ? BigDecimal.ZERO : order.getBaseAmount();
+        BigDecimal extra = dto.getExtraAmount() == null ? BigDecimal.ZERO : dto.getExtraAmount();
+        BigDecimal timeout = dto.getTimeoutFee() == null ? BigDecimal.ZERO : dto.getTimeoutFee();
+        BigDecimal deposit = order.getDepositAmount() == null ? BigDecimal.ZERO : order.getDepositAmount();
+        BigDecimal total = base.add(extra).add(timeout).subtract(deposit);
+
+        Settlement settlement = new Settlement();
+        settlement.setSettlementNo("S" + System.currentTimeMillis());
+        settlement.setBoardingOrderId(order.getId());
+        settlement.setBaseAmount(base);
+        settlement.setExtraAmount(extra);
+        settlement.setTimeoutFee(timeout);
+        settlement.setDepositAmount(deposit);
+        settlement.setTotalAmount(total);
+        settlement.setStatus("PENDING");
+        settlementMapper.insert(settlement);
+
+        transition(order, BoardingOrderStatus.PENDING_CHECK_OUT, "发起离店结算");
+        return settlement;
+    }
+
+    /**
+     * 离店确认（结算完成，待离店 -> 已完成）
+     */
+    @Override
+    @Transactional
+    public void complete(Long id) {
+        BoardingOrder order = boardingOrderMapper.selectById(id);
+        if (order == null) {
+            throw new BizException(ErrorCode.DATA_NOT_FOUND, "订单不存在");
+        }
+        if (!BoardingOrderStatus.PENDING_CHECK_OUT.getCode().equals(order.getStatus())) {
+            throw new BizException(ErrorCode.ORDER_STATUS_ERROR, "订单状态不允许离店确认");
+        }
+        transition(order, BoardingOrderStatus.COMPLETED, "离店完成");
+        Settlement settlement = settlementMapper.selectOne(new LambdaQueryWrapper<Settlement>()
+                .eq(Settlement::getBoardingOrderId, order.getId()));
+        if (settlement != null) {
+            settlement.setStatus("SETTLED");
+            settlementMapper.updateById(settlement);
+        }
     }
 
     // ---------- 私有方法 ----------

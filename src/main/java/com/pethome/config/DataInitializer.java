@@ -2,7 +2,9 @@ package com.pethome.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.pethome.entity.Cage;
+import com.pethome.entity.Groomer;
 import com.pethome.entity.RoomType;
+import com.pethome.entity.ServiceItem;
 import com.pethome.entity.Store;
 import com.pethome.entity.SysRole;
 import com.pethome.entity.SysUser;
@@ -10,7 +12,9 @@ import com.pethome.entity.SysUserRole;
 import com.pethome.enums.RoleEnum;
 import com.pethome.enums.UserType;
 import com.pethome.mapper.CageMapper;
+import com.pethome.mapper.GroomerMapper;
 import com.pethome.mapper.RoomTypeMapper;
+import com.pethome.mapper.ServiceItemMapper;
 import com.pethome.mapper.StoreMapper;
 import com.pethome.mapper.SysRoleMapper;
 import com.pethome.mapper.SysUserMapper;
@@ -39,6 +43,8 @@ public class DataInitializer implements CommandLineRunner {
     private final StoreMapper storeMapper;
     private final RoomTypeMapper roomTypeMapper;
     private final CageMapper cageMapper;
+    private final ServiceItemMapper serviceItemMapper;
+    private final GroomerMapper groomerMapper;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -49,6 +55,8 @@ public class DataInitializer implements CommandLineRunner {
         seedStore();
         seedRoomTypes();
         seedCages();
+        seedServiceItems();
+        seedGroomers();
     }
 
     private Map<String, SysRole> seedRoles() {
@@ -158,6 +166,45 @@ public class DataInitializer implements CommandLineRunner {
             cage.setCageNo(cageNo);
             cage.setStatus(1);
             cageMapper.insert(cage);
+        }
+    }
+
+    private void seedServiceItems() {
+        insertServiceItemIfAbsent("基础洗护", new BigDecimal("68.00"), 60, "洗澡吹干 + 基础护理");
+        insertServiceItemIfAbsent("精致美容", new BigDecimal("158.00"), 120, "造型修剪 + 耳道清洁");
+        insertServiceItemIfAbsent("SPA药浴", new BigDecimal("128.00"), 90, "深层清洁 + 皮肤护理");
+    }
+
+    private void insertServiceItemIfAbsent(String name, BigDecimal price, Integer minutes, String desc) {
+        Long count = serviceItemMapper.selectCount(
+                new LambdaQueryWrapper<ServiceItem>().eq(ServiceItem::getName, name));
+        if (count == 0) {
+            ServiceItem item = new ServiceItem();
+            item.setStoreId(1L);
+            item.setName(name);
+            item.setPrice(price);
+            item.setDurationMinutes(minutes);
+            item.setDescription(desc);
+            item.setStatus(1);
+            serviceItemMapper.insert(item);
+        }
+    }
+
+    private void seedGroomers() {
+        SysUser staff = userMapper.selectOne(
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, "staff01"));
+        if (staff == null) {
+            return;
+        }
+        Long count = groomerMapper.selectCount(
+                new LambdaQueryWrapper<Groomer>().eq(Groomer::getUserId, staff.getId()));
+        if (count == 0) {
+            Groomer groomer = new Groomer();
+            groomer.setStoreId(1L);
+            groomer.setUserId(staff.getId());
+            groomer.setName("演示美容师");
+            groomer.setStatus(1);
+            groomerMapper.insert(groomer);
         }
     }
 
