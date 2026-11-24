@@ -150,3 +150,20 @@ CREATE TABLE IF NOT EXISTS order_status_log (
     PRIMARY KEY (id),
     KEY idx_order (order_type, order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单状态流转日志表';
+
+-- ---------- 每日照护任务 ----------
+CREATE TABLE IF NOT EXISTS care_task (
+    id                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    boarding_order_id BIGINT       NOT NULL COMMENT '寄养订单ID',
+    task_date         DATE         NOT NULL COMMENT '任务日期',
+    task_type         VARCHAR(20)  NOT NULL COMMENT 'FEED喂食/WALK遛弯/CLEAN清洁/PHOTO拍照',
+    status            VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING待打卡/DONE已完成',
+    operator_id       BIGINT       NULL COMMENT '打卡员工ID',
+    done_at           DATETIME     NULL COMMENT '完成时间',
+    photo_url         VARCHAR(255) NULL COMMENT '打卡照片',
+    note              VARCHAR(255) NULL COMMENT '备注',
+    created_at        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_task (boarding_order_id, task_date, task_type),
+    KEY idx_date_status (task_date, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每日照护任务表';

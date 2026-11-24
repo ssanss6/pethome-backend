@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.pethome.common.exception.BizException;
 import com.pethome.common.result.ErrorCode;
 import com.pethome.dto.BoardingOrderCreateDTO;
+import com.pethome.dto.CheckInDTO;
 import com.pethome.entity.BoardingOrder;
 import com.pethome.entity.Cage;
 import com.pethome.entity.CageOccupancy;
@@ -21,6 +22,7 @@ import com.pethome.mapper.PetMapper;
 import com.pethome.mapper.RoomTypeMapper;
 import com.pethome.security.UserContext;
 import com.pethome.service.BoardingOrderService;
+import com.pethome.service.CareTaskService;
 import com.pethome.service.RedisService;
 import com.pethome.vo.BoardingOrderVO;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,7 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
     private final RoomTypeMapper roomTypeMapper;
     private final PetMapper petMapper;
     private final RedisService redisService;
+    private final CareTaskService careTaskService;
 
     /**
      * 查询某房型在 [checkIn, checkOut) 区间内的可订笼位
@@ -268,6 +271,33 @@ public class BoardingOrderServiceImpl implements BoardingOrderService {
         } catch (Exception e) {
             log.warn("可订笼位缓存失效失败：{}", e.getMessage());
         }
+    }
+
+    /**
+     * 入住登记（记录押金、生成照护任务，待入住 -> 寄养中）
+     *
+     * @param id  订单ID
+     * @param dto 入住信息
+     */
+    @Override
+    @Transactional
+    public void checkIn(Long id, CheckInDTO dto) {
+        BoardingOrder order = boardingOrderMapper.selectById(id);
+        if (order == null) {
+            throw new BizException(ErrorCode.DATA_NOT_FOUND, "订单不存在");
+        }
+        // 只有待入住状态才能办理入住
+        if (!BoardingOrderStatus.PENDING_CHECK_IN.getCode().equals(order.getStatus())) {
+            throw new BizException(ErrorCode.ORDER_STATUS_ERROR, "订单状态不允许入住登记");
+        }
+        // 记录押金
+        if (dto.getDepositAmount() != null) {
+            order.setDepositAmount(dto.getDepositAmount());
+        }
+        // 生成每日照护任务
+        careTaskService.generateTasks(order.getId(), order.getCheckInDate(), order.getCheckOutDate());
+        // 状态流转：待入住 -> 寄养中
+        transition(order, BoardingOrderStatus.BOARDING, "办理入住");
     }
 
     // ---------- 私有方法 ----------

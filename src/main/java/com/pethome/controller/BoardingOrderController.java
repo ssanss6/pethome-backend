@@ -2,6 +2,7 @@ package com.pethome.controller;
 
 import com.pethome.common.result.Result;
 import com.pethome.dto.BoardingOrderCreateDTO;
+import com.pethome.dto.CheckInDTO;
 import com.pethome.entity.BoardingOrder;
 import com.pethome.entity.Cage;
 import com.pethome.entity.RoomType;
@@ -89,6 +90,14 @@ public class BoardingOrderController {
     @PreAuthorize("hasAnyRole('STORE_MANAGER','PLATFORM_ADMIN')")
     public Result<Void> confirm(@PathVariable Long id) {
         boardingOrderService.confirm(id);
+        return Result.ok();
+    }
+
+    @Operation(summary = "入住登记")
+    @PostMapping("/orders/{id}/check-in")
+    @PreAuthorize("hasAnyRole('CAREGIVER','RECEPTION','STORE_MANAGER','PLATFORM_ADMIN')")
+    public Result<Void> checkIn(@PathVariable Long id, @RequestBody(required = false) CheckInDTO dto) {
+        boardingOrderService.checkIn(id, dto == null ? new CheckInDTO() : dto);
         return Result.ok();
     }
 }

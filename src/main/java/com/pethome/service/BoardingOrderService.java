@@ -1,6 +1,7 @@
 package com.pethome.service;
 
 import com.pethome.dto.BoardingOrderCreateDTO;
+import com.pethome.dto.CheckInDTO;
 import com.pethome.entity.BoardingOrder;
 import com.pethome.entity.Cage;
 import com.pethome.vo.BoardingOrderVO;
@@ -30,4 +31,7 @@ public interface BoardingOrderService {
 
     /** 门店确认（分配并锁定笼位，待确认 -> 待入住） */
     void confirm(Long id);
+
+    /** 入住登记（生成照护任务，待入住 -> 寄养中） */
+    void checkIn(Long id, CheckInDTO dto);
 }
