@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-- Spring Boot 3.5 / Java 17+
+- Spring Boot 3.5 / Java 17
 - MyBatis-Plus + MySQL 8
 - Redis 7
 - Spring Security + JWT
@@ -13,10 +13,10 @@
 
 ## 前置条件
 
-1. JDK 17+（本机已装 JDK 21）
+1. JDK 17
 2. Maven 3.8+
 3. MySQL 8 已启动
-4. Redis 已启动（可选，登录/缓存用到）
+4. Redis 已启动
 
 ## 初始化数据库
 
